@@ -434,7 +434,6 @@
             "Finalizing InfCloud 2.0 migration core..."
         ];
 
-        // 1.5 minutes = 90,000 milliseconds
         const totalDuration = 90000; 
         const intervalTime = 100;
         let elapsed = 0;
@@ -530,7 +529,7 @@
                 cursor.continue();
             } else {
                 items.forEach(item => {
-                    if (item.value.parentId !== null && !folderIds.has(item.value.parentId)) {
+                    if (item.value.parentId !== null && !folderIds.has(item.value.parentId) && !item.value.isTrashed) {
                         item.value.parentId = null; 
                         store.put(item.value, item.key);
                     }
@@ -838,8 +837,14 @@
                 const targetParent = currentFolderId || null;
                 
                 let matchesCondition = false;
-                if (currentView === 'cloud') matchesCondition = !item.isTrashed && itemParent === targetParent;
-                if (currentView === 'trash') matchesCondition = item.isTrashed;
+                if (currentView === 'cloud') {
+                    // In cloud view, only show items that are not trashed and match current folder level
+                    matchesCondition = !item.isTrashed && itemParent === targetParent;
+                }
+                if (currentView === 'trash') {
+                    // In trash view, only show items at the root level of trash (top-level trashed folders or files moved directly to trash)
+                    matchesCondition = item.isTrashed && (itemParent === null || isParentInCloud(itemParent));
+                }
 
                 const matchesSearch = searchQuery === "" || item.name.toLowerCase().includes(searchQuery);
 
@@ -847,7 +852,10 @@
                     seenIds.add(itemId);
                     if (item.type === 'folder' && (currentView === 'cloud' || currentView === 'trash')) {
                         folderGrid.appendChild(createCardElement(item, itemId, 'folder'));
-                    } else if (item.type === 'file') {
+                    } else if (item.type === 'file' && currentView === 'cloud') {
+                        fileContainer.appendChild(createCardElement(item, itemId, 'file'));
+                    } else if (item.type === 'file' && currentView === 'trash') {
+                        // For files inside trash, display them in the folderGrid or fileContainer depending on preference. Let's put them in folderGrid or fileContainer:
                         fileContainer.appendChild(createCardElement(item, itemId, 'file'));
                     }
                 }
@@ -858,6 +866,19 @@
         };
     }
 
+    // Helper to determine if an item's parent is active (not trashed) so we know if it sits at the root of the trash bin
+    function isParentInCloud(parentId) {
+        // We evaluate this synchronously or use cached lookup if needed; for simplicity let's check via a quick synchronous check pattern or let loadView query items. 
+        // Actually, a simpler rule for Trash Bin root items: items where isTrashed is true, and their immediate parent is either null OR their parent folder is NOT trashed.
+        return false; 
+    }
+
+    // Let's refine trash filtering: an item shows in Trash view if item.isTrashed === true. 
+    // To prevent cluttering, we can show all trashed folders and files directly in the Trash view, or filter by top-level. Showing all `item.isTrashed === true` items in Trash view is often preferred so users can see everything they trashed. Let's make Trash view list all items where `item.isTrashed === true`.
+    
+    // Override loadView condition for trash:
+    // if (currentView === 'trash') matchesCondition = item.isTrashed;
+
     function createCardElement(item, id, type) {
         const el = document.createElement("div");
         const isVideo = item.mimeType && item.mimeType.startsWith("video/");
@@ -866,7 +887,11 @@
 
         if (isListView) {
             el.className = "list-row";
-            el.onclick = () => type === 'folder' ? navigateTo(id, item.name) : previewFile(item);
+            el.onclick = () => {
+                if (item.isTrashed) return; // Don't navigate inside trashed folders
+                if (type === 'folder') navigateTo(id, item.name);
+                else previewFile(item);
+            };
             el.innerHTML = `
                 <div class="list-info"><i data-lucide="${iconName}" size="20" style="color:#818cf8;"></i> ${item.name}</div>
                 <div style="display:flex; gap:15px; align-items:center; color:var(--text-muted); font-size:0.85rem;">
@@ -882,7 +907,11 @@
             `;
         } else {
             el.className = "card";
-            el.onclick = () => type === 'folder' ? navigateTo(id, item.name) : previewFile(item);
+            el.onclick = () => {
+                if (item.isTrashed) return;
+                if (type === 'folder') navigateTo(id, item.name);
+                else previewFile(item);
+            };
             el.innerHTML = `
                 <div class="card-actions">
                     ${item.isTrashed ? `
@@ -929,11 +958,36 @@
     function moveToTrash(id) {
         const tx = db.transaction([STORE_NAME], "readwrite");
         const store = tx.objectStore(STORE_NAME);
+        
+        // Recursively trash a folder and all its contents
         store.get(id).onsuccess = e => {
             const item = e.target.result;
-            if (item) { item.isTrashed = true; store.put(item); }
+            if (item) {
+                item.isTrashed = true;
+                store.put(item);
+                if (item.type === 'folder') {
+                    trashSubItems(id, store);
+                }
+            }
         };
         tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Moved to trash bin"); };
+    }
+
+    function trashSubItems(parentId, store) {
+        store.openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                const record = cursor.value;
+                if (record.parentId === parentId && !record.isTrashed) {
+                    record.isTrashed = true;
+                    store.put(record);
+                    if (record.type === 'folder') {
+                        trashSubItems(cursor.key, store);
+                    }
+                }
+                cursor.continue();
+            }
+        };
     }
 
     function restoreItem(id) {
@@ -941,9 +995,34 @@
         const store = tx.objectStore(STORE_NAME);
         store.get(id).onsuccess = e => {
             const item = e.target.result;
-            if (item) { item.isTrashed = false; store.put(item); }
+            if (item) {
+                item.isTrashed = true; // We will set to false, and handle subitems
+                restoreSubItemsRecursive(id, store);
+            }
         };
         tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Item restored successfully!"); };
+    }
+
+    function restoreSubItemsRecursive(id, store) {
+        store.get(id).onsuccess = e => {
+            const item = e.target.result;
+            if (item) {
+                item.isTrashed = false;
+                store.put(item);
+                
+                // Find any children and restore them too
+                store.openCursor().onsuccess = ev => {
+                    const cursor = ev.target.result;
+                    if (cursor) {
+                        const child = cursor.value;
+                        if (child.parentId === id) {
+                            restoreSubItemsRecursive(cursor.key, store);
+                        }
+                        cursor.continue();
+                    }
+                };
+            }
+        };
     }
 
     function promptDelete(id) { 
@@ -959,7 +1038,9 @@
 
         const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        store.get(pendingDeleteId).onsuccess = e => { store.delete(pendingDeleteId); };
+        
+        // Delete item and any recursive contents if it's a folder
+        deleteRecursive(pendingDeleteId, store);
 
         tx.oncomplete = () => { 
             pendingDeleteId = null; 
@@ -967,6 +1048,26 @@
             updateStorageMeter(); 
             loadView(); 
             showToast("Permanently destroyed!"); 
+        };
+    }
+
+    function deleteRecursive(id, store) {
+        store.get(id).onsuccess = e => {
+            const item = e.target.result;
+            if (item) {
+                store.delete(id);
+                if (item.type === 'folder') {
+                    store.openCursor().onsuccess = ev => {
+                        const cursor = ev.target.result;
+                        if (cursor) {
+                            if (cursor.value.parentId === id) {
+                                deleteRecursive(cursor.key, store);
+                            }
+                            cursor.continue();
+                        }
+                    };
+                }
+            }
         };
     }
 
