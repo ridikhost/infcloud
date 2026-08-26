@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfCloud - The "Infinite" Zero-Server Cloud Storage</title>
+    <!-- Include Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #0f172a;
+            --bg-surface: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg-color); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
+
+        /* Navigation Bar */
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 8%; border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .logo { font-size: 1.4rem; font-weight: bold; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .logo span { color: var(--accent); }
+        .nav-cta {
+            background: var(--primary); color: white; border: none; padding: 10px 20px;
+            border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none;
+            display: flex; align-items: center; gap: 8px; transition: background 0.2s, transform 0.2s;
+        }
+        .nav-cta:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+        /* Hero Section */
+        .hero {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+            padding: 80px 20px 40px; max-width: 900px; margin: 0 auto;
+        }
+        .hero-badge {
+            background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem;
+            font-weight: 600; margin-bottom: 20px; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .hero h1 { font-size: 3.2rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 20px; line-height: 1.2; }
+        .hero h1 span { color: var(--accent); }
+        .hero p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 35px; max-width: 700px; }
+
+        .hero-buttons { display: flex; gap: 15px; justify-content: center; margin-bottom: 50px; }
+        .btn-primary {
+            background: var(--primary); color: white; padding: 14px 28px; border-radius: 8px;
+            font-weight: 600; font-size: 1rem; text-decoration: none; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3); transition: transform 0.2s, background 0.2s;
+        }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .btn-secondary {
+            background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-color);
+            padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; text-decoration: none;
+            display: flex; align-items: center; gap: 10px; transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: var(--border-color); }
+
+        /* Dashboard Preview Container */
+        .preview-container {
+            width: 100%; max-width: 1050px; margin: 0 auto 100px; padding: 0 20px;
+        }
+        .preview-wrapper {
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .preview-wrapper img {
+            width: 100%; height: auto; border-radius: 8px; display: block; border: 1px solid var(--border-color);
+        }
+
+        /* Features Section */
+        .features {
+            max-width: 1100px; margin: 0 auto; padding: 0 20px 100px;
+        }
+        .features-header { text-align: center; margin-bottom: 60px; }
+        .features-header h2 { font-size: 2.2rem; font-weight: 700; margin-bottom: 10px; }
+        .features-header p { color: var(--text-muted); font-size: 1.05rem; }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; }
+        .feature-card {
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            padding: 30px; border-radius: 12px; transition: transform 0.2s, border-color 0.2s;
+        }
+        .feature-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+        .feature-icon {
+            background: rgba(56, 189, 248, 0.1); color: var(--accent); width: 48px; height: 48px;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+        }
+        .feature-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 10px; }
+        .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border-color); padding: 40px 20px; text-align: center;
+            color: var(--text-muted); font-size: 0.9rem; background: var(--bg-surface);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo"><i data-lucide="zap" style="color: var(--accent);"></i> Inf<span>Cloud</span></div>
+        <a href="app.html" class="nav-cta">Launch App <i data-lucide="arrow-right" size="16"></i></a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-badge"><i data-lucide="shield-check" size="14"></i> Zero-Knowledge Architecture</div>
+        <h1>Experience True <span>"Infinite"</span> Cloud Storage, Without the Servers.</h1>
+        <p>Say goodbye to monthly subscriptions, corporate tracking, and data limits. InfCloud leverages client-side compression and military-grade browser encryption to turn your local environment into an impenetrable, lightning-fast private vault.</p>
+        <div class="hero-buttons">
+            <a href="app.html" class="btn-primary"><i data-lucide="hard-drive"></i> Open Your Vault</a>
+            <a href="#features" class="btn-secondary"><i data-lucide="info"></i> Learn Why It's Different</a>
+        </div>
+    </section>
+
+    <!-- Dashboard Preview Image -->
+    <div class="preview-container">
+        <div class="preview-wrapper">
+            <!-- Replace 'dashpreview.png' with your actual image filename or path -->
+            <img src="dashpreview.png" alt="InfCloud Dashboard Preview">
+        </div>
+    </div>
+
+    <!-- Features Grid -->
+    <section class="features" id="features">
+        <div class="features-header">
+            <h2>Built Different. Designed For Absolute Privacy.</h2>
+            <p>Traditional cloud providers hold your data hostage. InfCloud puts total control back in your hands.</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="infinity"></i></div>
+                <h3>The "Infinite" Storage Concept</h3>
+                <p>No arbitrary cloud caps or tiered plans. Your storage scales dynamically alongside your local device hardware and browser capacity—freeing you from monthly corporate fees.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="lock"></i></div>
+                <h3>Zero-Server, Zero-Knowledge</h3>
+                <p>There are no remote servers logging your files or passwords. Even if someone intercepts your traffic or accesses the host machine, files remain securely locked behind client-side AES-GCM encryption.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="zap"></i></div>
+                <h3>Gzip Client Compression</h3>
+                <p>Files are instantly compressed right inside your browser session before writing to local storage, saving massive amounts of space while optimizing read and write speeds.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="trash-2"></i></div>
+                <h3>Built-in Safety & Trash System</h3>
+                <p>Easily manage folders, recover accidentally deleted items via the dedicated Trash bin, or permanently shred data whenever you choose with clean, responsive custom confirmations.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="eye-off"></i></div>
+                <h3>No Account Required</h3>
+                <p>No sign-ups, email forms, or passwords to remember. Open the app, and your isolated cryptographic sandbox is instantly ready to use.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i data-lucide="cpu"></i></div>
+                <h3>True Local-First Performance</h3>
+                <p>No upload wait times or unstable internet connections. Everything processes directly on your local sandbox engine instantly.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 InfCloud. Absolute privacy through client-side architecture.</p>
+    </footer>
+
+<script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+</script>
+
+</body>
+</html>
