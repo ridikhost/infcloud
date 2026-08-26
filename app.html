@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InfCloud 2.0 - Secure Vault</title>
+  <title>InfCloud Vault - System Update</title>
   <style>
     :root {
       --bg-color: #f4f6f9;
@@ -17,13 +17,13 @@
       color: var(--text-main);
     }
 
-    /* Windows Update Style Migration Screen */
+    /* Windows Update Style Migration Screen (Hidden by default) */
     #windows-update-overlay {
       position: fixed;
       inset: 0;
-      background-color: #001f3f; /* Classic Windows Blue Setup Theme */
+      background-color: #001f3f;
       color: #ffffff;
-      display: flex;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -37,7 +37,6 @@
       padding: 30px;
     }
 
-    /* Windows style pulsing dots / spinner */
     .update-spinner {
       width: 54px;
       height: 54px;
@@ -72,7 +71,13 @@
       line-height: 1.6;
     }
 
-    /* InfCloud 2.0 Main Dashboard (Hidden by default until migration clears) */
+    /* Old Design Interface (Loaded by default) */
+    #old-dashboard {
+      display: block;
+      padding: 50px;
+    }
+
+    /* New InfCloud 2.0 Interface */
     #app-dashboard {
       display: none;
       padding: 50px;
@@ -96,10 +101,10 @@
     }
 
     .btn-action {
-      background: #e74c3c;
+      background: #3498db;
       color: white;
       border: none;
-      padding: 10px 18px;
+      padding: 12px 20px;
       font-size: 14px;
       border-radius: 4px;
       cursor: pointer;
@@ -107,6 +112,14 @@
     }
 
     .btn-action:hover {
+      background: #2980b9;
+    }
+
+    .btn-danger {
+      background: #e74c3c;
+    }
+    
+    .btn-danger:hover {
       background: #c0392b;
     }
   </style>
@@ -126,7 +139,25 @@
     </div>
   </div>
 
-  <!-- InfCloud 2.0 Interface -->
+  <!-- 1. OLD DESIGN INTERFACE (Default view) -->
+  <div id="old-dashboard">
+    <div class="dashboard-header">
+      <h1>InfCloud <span style="color: #718096;">1.0 (Legacy)</span></h1>
+      <span style="background: #e67e22; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">Legacy Mode</span>
+    </div>
+    
+    <div class="card-panel">
+      <h3>You are using the legacy interface</h3>
+      <p>InfCloud 2.0 is available with faster architecture, encrypted local metadata, and a refreshed layout.</p>
+      <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
+      <p style="font-size: 13px; color: #718096; margin-bottom: 20px;">
+        Click the button below to initiate the system migration update process.
+      </p>
+      <button class="btn-action" onclick="startMigrationProcess()">Upgrade to InfCloud 2.0</button>
+    </div>
+  </div>
+
+  <!-- 2. NEW INFCLOUD 2.0 INTERFACE -->
   <div id="app-dashboard">
     <div class="dashboard-header">
       <h1>InfCloud <span style="color: #3498db;">2.0</span> Dashboard</h1>
@@ -137,28 +168,28 @@
       <h3>Welcome to the New Architecture</h3>
       <p>Your workspace has successfully finished updating its core components, local indices, and security layers.</p>
       <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-      <p style="font-size: 13px; color: #718096; margin-bottom: 20px;">
-        Want to test or review the migration update screen again? Click below to clear your session flag and re-trigger it.
-      </p>
-      <button class="btn-action" onclick="triggerTestReset()">Simulate Windows Update Again</button>
+      <button class="btn-action btn-danger" onclick="triggerTestReset()">Reset Back to Old Design</button>
     </div>
   </div>
 
   <script>
-    // 1. Core Logic Check: Read configuration flag from storage
-    // If the database marker is explicitly false (or missing), we lock the UI and run update sequences.
     const migrationKey = 'infcloud_migrated_2_0';
     const isMigrated = localStorage.getItem(migrationKey) === 'true';
 
+    const oldDashboardEl = document.getElementById('old-dashboard');
     const overlayEl = document.getElementById('windows-update-overlay');
     const dashboardEl = document.getElementById('app-dashboard');
 
+    // If user already completed migration previously, bypass old design and show 2.0 right away
     if (isMigrated) {
-      // If already updated, skip screen immediately
-      overlayEl.style.display = 'none';
+      oldDashboardEl.style.display = 'none';
       dashboardEl.style.display = 'block';
-    } else {
-      // Otherwise, execute the Windows-style upgrade experience
+    }
+
+    // Triggered when user clicks "Upgrade to InfCloud 2.0" on the old design screen
+    function startMigrationProcess() {
+      oldDashboardEl.style.display = 'none';
+      overlayEl.style.display = 'flex';
       runWindowsUpdateSimulation();
     }
 
@@ -167,49 +198,46 @@
       const titleNode = document.getElementById('update-title');
       const percentNode = document.getElementById('update-percentage');
 
-      // Realistic update status milestones
       const updateStages = [
-        { threshold: 12, text: "Preparing secure components..." },
-        { threshold: 38, text: "Migrating vault database schema..." },
-        { threshold: 65, text: "Installing cryptographic patches..." },
-        { threshold: 88, text: "Cleaning up legacy cache elements..." },
-        { threshold: 96, text: "Finalizing updates..." }
+        { threshold: 10, text: "Preparing secure components..." },
+        { threshold: 30, text: "Migrating vault database schema..." },
+        { threshold: 55, text: "Installing cryptographic patches..." },
+        { threshold: 80, text: "Cleaning up legacy cache elements..." },
+        { threshold: 95, text: "Finalizing system updates..." }
       ];
 
+      // Configured to take roughly 1.5 minutes (90,000 milliseconds total duration)
+      // Interval ticks every 900ms, adding small chunks to reach ~100 over 100 ticks.
+      const intervalTime = 900; 
+
       const updateLoop = setInterval(() => {
-        // Slow down pacing dynamically as it approaches 100% to mirror actual system updates
-        const step = currentProgress < 45 ? Math.random() * 7 + 3 : Math.random() * 2.5 + 0.5;
+        const step = Math.random() * 1.2 + 0.7; // increments to complete smoothly over ~90 seconds
         currentProgress = Math.min(currentProgress + step, 100);
 
-        // Update active stage text message based on progress markers
-        const activeStage = updateStages.find(s => Math.floor(currentProgress) === s.threshold);
+        const activeStage = updateStages.find(s => Math.floor(currentProgress) >= s.threshold);
         if (activeStage) {
           titleNode.innerText = activeStage.text;
         }
 
         percentNode.innerText = `${Math.floor(currentProgress)}% complete`;
 
-        // Completion trigger
         if (currentProgress >= 100) {
           clearInterval(updateLoop);
           titleNode.innerText = "Restarting configuration...";
 
           setTimeout(() => {
-            // Write true to storage so this never interrupts the user again
             localStorage.setItem(migrationKey, 'true');
 
-            // Smooth fade-out transition effect
             overlayEl.style.opacity = '0';
             setTimeout(() => {
               overlayEl.style.display = 'none';
               dashboardEl.style.display = 'block';
             }, 600);
-          }, 1200);
+          }, 1500);
         }
-      }, 180);
+      }, intervalTime);
     }
 
-    // Helper method to reset state for testing purposes
     function triggerTestReset() {
       localStorage.setItem(migrationKey, 'false');
       location.reload();
