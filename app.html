@@ -1,247 +1,999 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InfCloud Vault - System Update</title>
-  <style>
-    :root {
-      --bg-color: #f4f6f9;
-      --text-main: #333333;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfCloud - Secure Local Workspace</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --modal-bg: rgba(15, 23, 42, 0.6);
+        }
 
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-    }
+        [data-theme="dark"] {
+            --primary: #3b82f6;
+            --primary-hover: #60a5fa;
+            --bg-color: #0b0f19;
+            --sidebar-bg: #111827;
+            --border-color: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --card-bg: #111827;
+            --danger: #f87171;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --modal-bg: rgba(0, 0, 0, 0.8);
+        }
 
-    /* Windows Update Style Migration Screen (Hidden by default) */
-    #windows-update-overlay {
-      position: fixed;
-      inset: 0;
-      background-color: #001f3f;
-      color: #ffffff;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 99999;
-      transition: opacity 0.6s ease-in-out;
-    }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.2s ease; }
+        body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-    .update-card {
-      text-align: center;
-      max-width: 480px;
-      padding: 30px;
-    }
+        /* Loader Animation */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--bg-color); z-index: 9999; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            gap: 15px; font-weight: 600; font-size: 1.1rem;
+            animation: fadeOut 0.4s ease 0.5s forwards; pointer-events: none;
+        }
+        .spinner { width: 38px; height: 38px; border: 3px solid var(--border-color); border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
 
-    .update-spinner {
-      width: 54px;
-      height: 54px;
-      border: 5px solid rgba(255, 255, 255, 0.15);
-      border-top: 5px solid #3498db;
-      border-radius: 50%;
-      animation: winSpin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
-      margin: 0 auto 35px auto;
-    }
+        /* Sidebar */
+        aside {
+            width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; padding: 20px; justify-content: space-between;
+        }
+        .sidebar-top { display: flex; flex-direction: column; gap: 24px; }
+        .logo { font-size: 1.3rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 10px; text-decoration: none; letter-spacing: -0.02em; }
+        
+        .nav-links { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .nav-links li { padding: 10px 14px; border-radius: 8px; cursor: pointer; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 12px; font-size: 0.92rem; }
+        .nav-links li.active, .nav-links li:hover { background: var(--border-color); color: var(--text-main); transform: translateX(3px); }
 
-    @keyframes winSpin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+        /* Storage Widget Card */
+        .storage-widget {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 14px; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 8px; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .storage-widget:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); }
+        .storage-title { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .progress-bar-bg { width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .storage-details { font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; }
 
-    #update-title {
-      font-weight: 300;
-      font-size: 26px;
-      margin-bottom: 8px;
-    }
+        .sidebar-footer { display: flex; flex-direction: column; gap: 8px; }
+        .sidebar-btn {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;
+            color: var(--text-main); cursor: pointer; font-weight: 500; display: flex; align-items: center;
+            justify-content: center; gap: 8px; width: 100%; font-size: 0.88rem;
+        }
+        .sidebar-btn:hover { background: var(--border-color); transform: translateY(-1px); }
 
-    #update-percentage {
-      font-size: 52px;
-      font-weight: 200;
-      letter-spacing: -1px;
-      margin: 0 0 25px 0;
-    }
+        /* Main Workspace */
+        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        header {
+            background: var(--sidebar-bg); padding: 14px 30px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center; z-index: 10;
+        }
+        .breadcrumbs { display: flex; gap: 8px; align-items: center; font-weight: 500; font-size: 0.95rem; color: var(--text-muted); }
+        .breadcrumbs span { cursor: pointer; color: var(--primary); }
+        .breadcrumbs span:hover { text-decoration: underline; }
+        
+        .actions { display: flex; gap: 10px; align-items: center; }
+        button.primary-btn { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        button.primary-btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        button.secondary-btn { background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+        button.secondary-btn:hover { background: var(--border-color); transform: translateY(-1px); }
+        button.danger-btn { background: var(--danger); color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+        button.danger-btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
-    .update-footer-text {
-      color: #a0aec0;
-      font-size: 13.5px;
-      line-height: 1.6;
-    }
+        .search-box {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 7px 12px;
+            border-radius: 8px; display: flex; align-items: center; gap: 8px; color: var(--text-main); width: 220px;
+        }
+        .search-box input { background: none; border: none; outline: none; color: var(--text-main); font-size: 0.88rem; width: 100%; }
 
-    /* Old Design Interface (Loaded by default) */
-    #old-dashboard {
-      display: block;
-      padding: 50px;
-    }
+        /* Content Area & Animations */
+        .content-area { padding: 30px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 24px; animation: fadeInContent 0.3s ease; }
+        @keyframes fadeInContent { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .section-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); }
+        
+        /* Grid Layout Cards */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+        .card {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px;
+            display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; position: relative; height: 135px;
+            animation: popCard 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popCard { from { opacity: 0; transform: scale(0.93); } to { opacity: 1; transform: scale(1); } }
+        .card:hover { border-color: var(--primary); box-shadow: 0 10px 25px rgba(37, 99, 235, 0.12); transform: translateY(-3px); }
+        
+        .card-icon { color: var(--primary); display: flex; align-items: center; }
+        .card-title { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
+        
+        .card-actions { position: absolute; top: 12px; right: 12px; display: none; gap: 4px; }
+        .card:hover .card-actions { display: flex; }
+        .icon-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); }
+        .icon-btn:hover { background: var(--border-color); transform: scale(1.05); }
+        .icon-btn.delete:hover { background: var(--danger); color: white; border-color: var(--danger); }
+        .icon-btn.restore:hover { background: var(--success); color: white; border-color: var(--success); }
+        .icon-btn.share:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
-    /* New InfCloud 2.0 Interface */
-    #app-dashboard {
-      display: none;
-      padding: 50px;
-    }
+        /* List Layout */
+        .list-view { display: flex; flex-direction: column; gap: 6px; }
+        .list-row {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.9rem;
+            animation: fadeInContent 0.2s ease;
+        }
+        .list-row:hover { border-color: var(--primary); background: var(--border-color); }
+        .list-info { display: flex; align-items: center; gap: 12px; font-weight: 500; }
 
-    .dashboard-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #e2e8f0;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-    }
+        /* Drag and Drop Overlay */
+        #dropOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(37, 99, 235, 0.92); z-index: 500; display: none;
+            flex-direction: column; justify-content: center; align-items: center; color: white; gap: 12px;
+            font-size: 1.4rem; font-weight: 700; border: 3px dashed white; pointer-events: none;
+            backdrop-filter: blur(4px); animation: fadeInContent 0.2s ease;
+        }
 
-    .card-panel {
-      background: white;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      max-width: 600px;
-    }
+        /* Modals */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--modal-bg); display: none; justify-content: center;
+            align-items: center; z-index: 1000; backdrop-filter: blur(4px);
+            animation: fadeInContent 0.2s ease;
+        }
+        .modal {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            padding: 24px; border-radius: 12px; width: 420px; box-shadow: 0 25px 50px rgba(0,0,0,0.35);
+            display: flex; flex-direction: column; gap: 16px; max-height: 85vh; overflow-y: auto;
+            animation: popCard 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal.preview-modal { width: 720px; }
+        .modal h4 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+        .modal p { color: var(--text-muted); font-size: 0.9rem; }
+        .modal input {
+            background: var(--bg-color); border: 1px solid var(--border-color);
+            padding: 10px; border-radius: 8px; color: var(--text-main); outline: none; font-size: 0.95rem; width: 100%;
+        }
+        .modal input:focus { border-color: var(--primary); }
+        .preview-box { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; max-height: 450px; overflow: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; display: flex; justify-content: center; align-items: center; }
+        .preview-box img, .preview-box video, .preview-box audio { max-width: 100%; max-height: 400px; border-radius: 6px; display: block; outline: none; width: 100%; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
-    .btn-action {
-      background: #3498db;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      font-size: 14px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+        /* Toast Container */
+        #toast-container { position: fixed; bottom: 25px; right: 25px; z-index: 1100; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast {
+            background: var(--success); color: white; padding: 12px 18px; border-radius: 8px;
+            font-size: 0.9rem; font-weight: 500; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex; align-items: center; gap: 12px; pointer-events: auto; animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .toast-close { background: none; border: none; color: white; cursor: pointer; opacity: 0.8; font-size: 1rem; }
 
-    .btn-action:hover {
-      background: #2980b9;
-    }
-
-    .btn-danger {
-      background: #e74c3c;
-    }
-    
-    .btn-danger:hover {
-      background: #c0392b;
-    }
-  </style>
+        #fileInput, #folderInput, #importInput { display: none; }
+    </style>
 </head>
 <body>
 
-  <!-- Windows Update-Style Migration Wrapper -->
-  <div id="windows-update-overlay">
-    <div class="update-card">
-      <div class="update-spinner"></div>
-      <h2 id="update-title">Working on updates</h2>
-      <p id="update-percentage">0% complete</p>
-      <p class="update-footer-text">
-        Configuring InfCloud 2.0 system enhancements.<br>
-        Your files and keys remain safe. Please do not turn off or close your browser.
-      </p>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div>Loading Secure Vault Workspace...</div>
     </div>
-  </div>
 
-  <!-- 1. OLD DESIGN INTERFACE (Default view) -->
-  <div id="old-dashboard">
-    <div class="dashboard-header">
-      <h1>InfCloud <span style="color: #718096;">1.0 (Legacy)</span></h1>
-      <span style="background: #e67e22; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">Legacy Mode</span>
+    <div id="toast-container"></div>
+    <div id="dropOverlay"><i data-lucide="upload-cloud" size="64"></i> Drop files & folders to upload instantly</div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="folderModal">
+        <div class="modal">
+            <h4><i data-lucide="folder-plus"></i> New Folder</h4>
+            <input type="text" id="folderNameInput" placeholder="Folder name..." onkeydown="if(event.key==='Enter') confirmCreateFolder()">
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="closeModal('folderModal')">Cancel</button>
+                <button class="primary-btn" onclick="confirmCreateFolder()">Create</button>
+            </div>
+        </div>
     </div>
-    
-    <div class="card-panel">
-      <h3>You are using the legacy interface</h3>
-      <p>InfCloud 2.0 is available with faster architecture, encrypted local metadata, and a refreshed layout.</p>
-      <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-      <p style="font-size: 13px; color: #718096; margin-bottom: 20px;">
-        Click the button below to initiate the system migration update process.
-      </p>
-      <button class="btn-action" onclick="startMigrationProcess()">Upgrade to InfCloud 2.0</button>
+
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal">
+            <h4><i data-lucide="share-2"></i> Secure File Share Link</h4>
+            <p>Anyone with this link can view or download this encrypted file directly from your browser engine:</p>
+            <input type="text" id="shareLinkInput" readonly onclick="this.select()">
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="closeModal('shareModal')">Close</button>
+                <button class="primary-btn" onclick="copyShareLink()"><i data-lucide="copy"></i> Copy Link</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- 2. NEW INFCLOUD 2.0 INTERFACE -->
-  <div id="app-dashboard">
-    <div class="dashboard-header">
-      <h1>InfCloud <span style="color: #3498db;">2.0</span> Dashboard</h1>
-      <span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">System Up-to-Date</span>
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal preview-modal">
+            <h4 id="previewTitle"><i data-lucide="eye"></i> File Preview</h4>
+            <div class="preview-box" id="previewContent">Loading preview...</div>
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="closeModal('previewModal')">Close</button>
+                <button class="primary-btn" id="previewDownloadBtn"><i data-lucide="download"></i> Download File</button>
+            </div>
+        </div>
     </div>
-    
-    <div class="card-panel">
-      <h3>Welcome to the New Architecture</h3>
-      <p>Your workspace has successfully finished updating its core components, local indices, and security layers.</p>
-      <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-      <button class="btn-action btn-danger" onclick="triggerTestReset()">Reset Back to Old Design</button>
+
+    <div class="modal-overlay" id="storageModal">
+        <div class="modal">
+            <h4><i data-lucide="pie-chart"></i> Storage & Deduplication Stats</h4>
+            <p>InfCloud uses client-side deduplication blocks to maximize drive capacity efficiency.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Encrypted DB Footprint:</span> <strong id="statStoredSize">0 KB</strong></div>
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Raw Uncompressed Size:</span> <strong id="statRawSize">0 KB</strong></div>
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Deduplication Efficiency:</span> <strong id="statRatio" style="color:var(--success)">100%</strong></div>
+            </div>
+            <div class="modal-buttons" style="margin-top: 15px;">
+                <button class="secondary-btn" onclick="exportVault()"><i data-lucide="download"></i> Backup Vault (.infbackup)</button>
+                <button class="secondary-btn" onclick="document.getElementById('importInput').click()"><i data-lucide="upload"></i> Restore</button>
+                <input type="file" id="importInput" accept=".infbackup" onchange="importVault(event)">
+                <button class="primary-btn" onclick="closeModal('storageModal')">Close</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const migrationKey = 'infcloud_migrated_2_0';
-    const isMigrated = localStorage.getItem(migrationKey) === 'true';
+    <div class="modal-overlay" id="trashModal">
+        <div class="modal">
+            <h4><i data-lucide="alert-triangle" style="color: var(--danger)"></i> Permanently Delete?</h4>
+            <p id="trashModalText">This action cannot be undone. The cryptographic file block will be purged.</p>
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="closeModal('trashModal')">Cancel</button>
+                <button class="primary-btn" style="background: var(--danger);" id="trashConfirmBtn" onclick="confirmPermanentDelete()">Delete Forever</button>
+            </div>
+        </div>
+    </div>
 
-    const oldDashboardEl = document.getElementById('old-dashboard');
-    const overlayEl = document.getElementById('windows-update-overlay');
-    const dashboardEl = document.getElementById('app-dashboard');
+    <!-- Sidebar -->
+    <aside>
+        <div class="sidebar-top">
+            <a href="index.html" class="logo"><i data-lucide="zap"></i> InfCloud</a>
+            <ul class="nav-links">
+                <li id="nav-cloud" class="active" onclick="switchView('cloud')"><i data-lucide="hard-drive"></i> My Workspace</li>
+                <li id="nav-trash" onclick="switchView('trash')"><i data-lucide="trash-2"></i> Trash Bin</li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="storage-widget" onclick="openStorageModal()">
+                <div class="storage-title">
+                    <span>Storage Engine</span>
+                    <span id="storageUsedText">0 KB</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="storageBar"></div>
+                </div>
+                <div class="storage-details"><span>Optimized & Secure</span><span id="savingsPctText">100% saved</span></div>
+            </div>
+            <button class="sidebar-btn" onclick="toggleViewMode()"><i data-lucide="layout-grid" id="viewModeIcon"></i> <span id="viewModeText">List View</span></button>
+            <button class="sidebar-btn" onclick="toggleTheme()"><i data-lucide="sun-moon"></i> Theme Toggle</button>
+        </div>
+    </aside>
 
-    // If user already completed migration previously, bypass old design and show 2.0 right away
-    if (isMigrated) {
-      oldDashboardEl.style.display = 'none';
-      dashboardEl.style.display = 'block';
+    <!-- Main Workspace -->
+    <main id="mainDropZone">
+        <header>
+            <div class="breadcrumbs" id="breadcrumbNav">
+                <span onclick="navigateTo(null)">My Workspace</span>
+            </div>
+            <div class="actions" id="headerActionsContainer">
+                <div class="search-box">
+                    <i data-lucide="search" size="15"></i>
+                    <input type="text" id="searchInput" placeholder="Search files..." oninput="handleSearch(this.value)">
+                </div>
+                <button class="secondary-btn" onclick="openFolderModal()"><i data-lucide="folder-plus"></i> Folder</button>
+                <button class="secondary-btn" onclick="document.getElementById('folderInput').click()"><i data-lucide="folder-up"></i> Upload Folder</button>
+                <button class="primary-btn" onclick="document.getElementById('fileInput').click()"><i data-lucide="upload"></i> Upload</button>
+                
+                <input type="file" id="fileInput" multiple onchange="handleMultipleFiles(event)">
+                <input type="file" id="folderInput" webkitdirectory directory multiple onchange="handleFolderUpload(event)">
+            </div>
+        </header>
+
+        <div class="content-area" id="mainContentArea">
+            <div id="foldersSection">
+                <div class="section-header"><span><i data-lucide="folder"></i> Folders</span></div>
+                <div class="grid" id="folderGrid"></div>
+            </div>
+            <div>
+                <div class="section-header"><span><i data-lucide="file"></i> Files</span></div>
+                <div id="fileContainer" class="grid"></div>
+            </div>
+        </div>
+    </main>
+
+<script>
+    const DB_NAME = "InfCloudVaultDB";
+    const STORE_NAME = "driveItems";
+    const BLOB_STORE = "contentBlobs";
+    let db, currentFolderId = null, folderPath = [], currentView = "cloud", searchQuery = "";
+    let isListView = false, pendingDeleteId = null;
+
+    function refreshIcons() { lucide.createIcons(); }
+
+    function showToast(msg) {
+        const container = document.getElementById("toast-container");
+        const t = document.createElement("div");
+        t.className = "toast";
+        t.innerHTML = `<i data-lucide="check-circle" size="18"></i><span>${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+        container.appendChild(t);
+        refreshIcons();
+        setTimeout(() => { if (t.parentElement) t.remove(); }, 3000);
     }
 
-    // Triggered when user clicks "Upgrade to InfCloud 2.0" on the old design screen
-    function startMigrationProcess() {
-      oldDashboardEl.style.display = 'none';
-      overlayEl.style.display = 'flex';
-      runWindowsUpdateSimulation();
+    function toggleTheme() {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const newTheme = isDark ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("infcloud_theme", newTheme);
+    }
+    if (localStorage.getItem("infcloud_theme") === "dark") document.documentElement.setAttribute("data-theme", "dark");
+
+    function toggleViewMode() {
+        isListView = !isListView;
+        document.getElementById("viewModeText").innerText = isListView ? "Grid View" : "List View";
+        document.getElementById("viewModeIcon").setAttribute("data-lucide", isListView ? "layout-grid" : "list");
+        loadView();
+        refreshIcons();
     }
 
-    function runWindowsUpdateSimulation() {
-      let currentProgress = 0;
-      const titleNode = document.getElementById('update-title');
-      const percentNode = document.getElementById('update-percentage');
+    function openFolderModal() {
+        document.getElementById("folderModal").style.display = "flex";
+        document.getElementById("folderNameInput").value = "";
+        setTimeout(() => document.getElementById("folderNameInput").focus(), 50);
+    }
+    function openStorageModal() { document.getElementById("storageModal").style.display = "flex"; updateStorageStatsModal(); }
+    
+    function closeModal(id) { 
+        document.getElementById(id).style.display = "none"; 
+        if (id === 'previewModal') {
+            const previewBox = document.getElementById("previewContent");
+            const mediaElements = previewBox.querySelectorAll("audio, video");
+            mediaElements.forEach(media => { media.pause(); media.currentTime = 0; });
+            previewBox.innerHTML = "";
+        }
+    }
 
-      const updateStages = [
-        { threshold: 10, text: "Preparing secure components..." },
-        { threshold: 30, text: "Migrating vault database schema..." },
-        { threshold: 55, text: "Installing cryptographic patches..." },
-        { threshold: 80, text: "Cleaning up legacy cache elements..." },
-        { threshold: 95, text: "Finalizing system updates..." }
-      ];
+    // Initialize Database
+    const request = indexedDB.open(DB_NAME, 10);
+    request.onsuccess = async e => { 
+        db = e.target.result; 
+        repairOrphanedReferences(); 
+        await checkSharedLinkParam();
+    };
+    request.onupgradeneeded = e => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+        if (!db.objectStoreNames.contains(BLOB_STORE)) db.createObjectStore(BLOB_STORE, { keyPath: "hash" });
+    };
 
-      // Configured to take roughly 1.5 minutes (90,000 milliseconds total duration)
-      // Interval ticks every 900ms, adding small chunks to reach ~100 over 100 ticks.
-      const intervalTime = 900; 
+    function repairOrphanedReferences() {
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        let folderIds = new Set();
+        let items = [];
 
-      const updateLoop = setInterval(() => {
-        const step = Math.random() * 1.2 + 0.7; // increments to complete smoothly over ~90 seconds
-        currentProgress = Math.min(currentProgress + step, 100);
+        store.openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                items.push({ key: cursor.key, value: cursor.value });
+                if (cursor.value.type === 'folder' && !cursor.value.isTrashed) folderIds.add(cursor.key);
+                cursor.continue();
+            } else {
+                items.forEach(item => {
+                    if (item.value.parentId !== null && !folderIds.has(item.value.parentId)) {
+                        item.value.parentId = null; 
+                        store.put(item.value, item.key);
+                    }
+                });
+                updateStorageMeter();
+                loadView();
+                refreshIcons();
+            }
+        };
+    }
 
-        const activeStage = updateStages.find(s => Math.floor(currentProgress) >= s.threshold);
-        if (activeStage) {
-          titleNode.innerText = activeStage.text;
+    // Check URL parameters for shared files on direct link opening
+    async function checkSharedLinkParam() {
+        const params = new URLSearchParams(window.location.search);
+        const shareHash = params.get("shareHash");
+        const shareName = params.get("shareName");
+        const shareMime = params.get("shareMime");
+        const shareKey = params.get("shareKey");
+        const shareIv = params.get("shareIv");
+
+        if (shareHash && shareKey && shareIv) {
+            try {
+                const jwkKey = JSON.parse(decodeURIComponent(shareKey));
+                const ivArray = Uint8Array.from(atob(shareIv), c => c.charCodeAt(0));
+                
+                // If local DB doesn't have it locally, fetch/prompt or if stored check blob store directly
+                const tx = db.transaction([BLOB_STORE], "readonly");
+                const req = tx.objectStore(BLOB_STORE).get(shareHash);
+                
+                req.onsuccess = async e => {
+                    const record = e.target.result;
+                    if (record) {
+                        previewFile({ name: decodeURIComponent(shareName || "Shared File"), mimeType: decodeURIComponent(shareMime || "application/octet-stream"), contentHash: shareHash });
+                    } else {
+                        showToast("Shared item block not found in local workspace storage database.");
+                    }
+                };
+            } catch(err) {
+                console.error(err);
+            }
+        }
+    }
+
+    // Drag and Drop Upload Handlers
+    const dropZone = document.getElementById("mainDropZone");
+    dropZone.addEventListener("dragover", e => { e.preventDefault(); document.getElementById("dropOverlay").style.display = "flex"; });
+    dropZone.addEventListener("dragleave", e => { e.preventDefault(); document.getElementById("dropOverlay").style.display = "none"; });
+    dropZone.addEventListener("drop", async e => {
+        e.preventDefault();
+        document.getElementById("dropOverlay").style.display = "none";
+        if (e.dataTransfer.files.length > 0) {
+            for (let file of e.dataTransfer.files) { await processAndStoreFile(file, currentFolderId); }
+            updateStorageMeter();
+            loadView();
+            showToast("Files dropped and uploaded successfully!");
+        }
+    });
+
+    async function calculateHash(buffer) {
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function compressData(buffer, mimeType) {
+        let dataToCompress = buffer;
+        if (mimeType && (mimeType.includes("text") || mimeType.includes("json") || mimeType.includes("javascript") || mimeType.includes("python"))) {
+            try {
+                const textDecoder = new TextDecoder();
+                let text = textDecoder.decode(buffer);
+                text = text.replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*/g, '');
+                dataToCompress = new TextEncoder().encode(text);
+            } catch(err) {}
+        }
+        const stream = new Blob([dataToCompress]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    async function decompressData(buffer) {
+        const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return await new Response(stream).arrayBuffer();
+    }
+
+    function switchView(view) {
+        currentView = view;
+        ['cloud', 'trash'].forEach(v => {
+            const el = document.getElementById(`nav-${v}`);
+            if (el) el.classList.toggle("active", v === view);
+        });
+        document.getElementById("foldersSection").style.display = (view === 'cloud') ? "block" : "none";
+        
+        const actionsContainer = document.getElementById("headerActionsContainer");
+        if (view === 'trash') {
+            actionsContainer.innerHTML = `
+                <div class="search-box">
+                    <i data-lucide="search" size="15"></i>
+                    <input type="text" id="searchInput" placeholder="Search trash..." oninput="handleSearch(this.value)">
+                </div>
+                <button class="danger-btn" onclick="promptEmptyTrash()"><i data-lucide="trash"></i> Empty Trash</button>
+            `;
+        } else {
+            actionsContainer.innerHTML = `
+                <div class="search-box">
+                    <i data-lucide="search" size="15"></i>
+                    <input type="text" id="searchInput" placeholder="Search files..." oninput="handleSearch(this.value)">
+                </div>
+                <button class="secondary-btn" onclick="openFolderModal()"><i data-lucide="folder-plus"></i> Folder</button>
+                <button class="secondary-btn" onclick="document.getElementById('folderInput').click()"><i data-lucide="folder-up"></i> Upload Folder</button>
+                <button class="primary-btn" onclick="document.getElementById('fileInput').click()"><i data-lucide="upload"></i> Upload</button>
+                
+                <input type="file" id="fileInput" multiple onchange="handleMultipleFiles(event)">
+                <input type="file" id="folderInput" webkitdirectory directory multiple onchange="handleFolderUpload(event)">
+            `;
+        }
+        loadView();
+        refreshIcons();
+    }
+
+    function navigateTo(folderId, folderName = null) {
+        if (currentView !== 'cloud') return;
+        currentFolderId = folderId;
+        if (folderId === null) folderPath = [];
+        else {
+            const idx = folderPath.findIndex(f => f.id === folderId);
+            if (idx !== -1) folderPath = folderPath.slice(0, idx + 1);
+            else folderPath.push({ id: folderId, name: folderName });
+        }
+        renderBreadcrumbs();
+        loadView();
+    }
+
+    function renderBreadcrumbs() {
+        let html = `<span onclick="switchView('cloud'); navigateTo(null)">My Workspace</span>`;
+        folderPath.forEach(f => { html += ` / <span onclick="navigateTo(${f.id}, '${f.name}')">${f.name}</span>`; });
+        document.getElementById("breadcrumbNav").innerHTML = html;
+    }
+
+    function handleSearch(q) { searchQuery = q.toLowerCase().trim(); loadView(); }
+
+    function confirmCreateFolder() {
+        const name = document.getElementById("folderNameInput").value.trim();
+        if (!name) return;
+        closeModal('folderModal');
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        tx.objectStore(STORE_NAME).add({ type: "folder", name, parentId: currentFolderId || null, isTrashed: false, date: new Date().toLocaleDateString() });
+        tx.oncomplete = () => { loadView(); showToast("Folder created"); };
+    }
+
+    async function handleMultipleFiles(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            for (let file of files) {
+                await processAndStoreFile(file, currentFolderId || null);
+            }
+            updateStorageMeter();
+            loadView();
+            showToast(`Uploaded ${files.length} files successfully!`);
+        }
+        event.target.value = "";
+    }
+
+    async function handleFolderUpload(event) {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        showToast("Processing folder hierarchy...");
+        const folderMap = new Map();
+
+        for (let file of files) {
+            const relPath = file.webkitRelativePath;
+            if (!relPath) {
+                await processAndStoreFile(file, currentFolderId || null);
+                continue;
+            }
+
+            const parts = relPath.split('/');
+            let parentId = currentFolderId || null;
+
+            for (let i = 0; i < parts.length - 1; i++) {
+                const folderSubPath = parts.slice(0, i + 1).join('/');
+                if (!folderMap.has(folderSubPath)) {
+                    const folderName = parts[i];
+                    parentId = await createFolderPromise(folderName, parentId);
+                    folderMap.set(folderSubPath, parentId);
+                } else {
+                    parentId = folderMap.get(folderSubPath);
+                }
+            }
+
+            await processAndStoreFile(file, parentId);
         }
 
-        percentNode.innerText = `${Math.floor(currentProgress)}% complete`;
+        event.target.value = "";
+        updateStorageMeter();
+        loadView();
+        showToast("Folder upload completed!");
+    }
 
-        if (currentProgress >= 100) {
-          clearInterval(updateLoop);
-          titleNode.innerText = "Restarting configuration...";
+    function createFolderPromise(name, parentId) {
+        return new Promise(resolve => {
+            const tx = db.transaction([STORE_NAME], "readwrite");
+            const req = tx.objectStore(STORE_NAME).add({ type: "folder", name, parentId: parentId || null, isTrashed: false, date: new Date().toLocaleDateString() });
+            req.onsuccess = e => resolve(e.target.result);
+        });
+    }
 
-          setTimeout(() => {
-            localStorage.setItem(migrationKey, 'true');
+    async function processAndStoreFile(file, targetFolderId) {
+        const arrayBuffer = await file.arrayBuffer();
+        const contentHash = await calculateHash(arrayBuffer);
+        const compressed = await compressData(arrayBuffer, file.type);
 
-            overlayEl.style.opacity = '0';
-            setTimeout(() => {
-              overlayEl.style.display = 'none';
-              dashboardEl.style.display = 'block';
-            }, 600);
-          }, 1500);
+        const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, compressed);
+        const exportedKey = await crypto.subtle.exportKey("jwk", key);
+
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
+            
+            tx.objectStore(BLOB_STORE).put({ 
+                hash: contentHash, 
+                ciphertext: encrypted, 
+                iv, 
+                key: exportedKey, 
+                storedSize: encrypted.byteLength 
+            });
+
+            tx.objectStore(STORE_NAME).add({
+                type: "file", 
+                name: file.name, 
+                mimeType: file.type, 
+                contentHash, 
+                parentId: targetFolderId || null,
+                isTrashed: false, 
+                originalSize: arrayBuffer.byteLength, 
+                date: new Date().toLocaleDateString()
+            });
+
+            tx.oncomplete = () => resolve();
+            tx.onerror = (err) => reject(err);
+        });
+    }
+
+    function updateStorageMeter() {
+        if (!db) return;
+        let totalRaw = 0, totalStored = 0;
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readonly");
+        
+        tx.objectStore(STORE_NAME).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                if (!cursor.value.isTrashed && cursor.value.type === 'file') {
+                    totalRaw += cursor.value.originalSize;
+                }
+                cursor.continue();
+            }
+        };
+
+        tx.objectStore(BLOB_STORE).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) { 
+                totalStored += cursor.value.storedSize; 
+                cursor.continue(); 
+            }
+        };
+
+        tx.oncomplete = () => {
+            const usedKB = Math.round(totalStored / 1024);
+            const rawKB = Math.round(totalRaw / 1024);
+            const savedPct = rawKB > 0 ? Math.max(0, Math.round((1 - (usedKB / rawKB)) * 100)) : 100;
+            
+            document.getElementById("storageUsedText").innerText = usedKB > 1024 ? `${(usedKB/1024).toFixed(1)} MB` : `${usedKB} KB`;
+            document.getElementById("storageBar").style.width = `${Math.min(100, (usedKB / (50 * 1024)) * 100)}%`;
+            document.getElementById("savingsPctText").innerText = `${savedPct}% saved`;
+        };
+    }
+
+    function updateStorageStatsModal() {
+        let totalRaw = 0, totalStored = 0;
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readonly");
+        tx.objectStore(STORE_NAME).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) { if (!cursor.value.isTrashed && cursor.value.type === 'file') totalRaw += cursor.value.originalSize; cursor.continue(); }
+        };
+        tx.objectStore(BLOB_STORE).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) { totalStored += cursor.value.storedSize; cursor.continue(); }
+        };
+        tx.oncomplete = () => {
+            document.getElementById("statStoredSize").innerText = `${Math.round(totalStored / 1024)} KB`;
+            document.getElementById("statRawSize").innerText = `${Math.round(totalRaw / 1024)} KB`;
+            const ratio = totalRaw > 0 ? Math.round((1 - (totalStored / totalRaw)) * 100) : 100;
+            document.getElementById("statRatio").innerText = `${Math.max(0, ratio)}% efficiency`;
+        };
+    }
+
+    function loadView() {
+        const fileContainer = document.getElementById("fileContainer");
+        const folderGrid = document.getElementById("folderGrid");
+        fileContainer.innerHTML = ""; folderGrid.innerHTML = "";
+
+        const seenIds = new Set();
+        const tx = db.transaction([STORE_NAME], "readonly");
+
+        tx.objectStore(STORE_NAME).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                const item = cursor.value;
+                const itemId = cursor.key;
+                const itemParent = item.parentId || null;
+                const targetParent = currentFolderId || null;
+                
+                let matchesCondition = false;
+                if (currentView === 'cloud') matchesCondition = !item.isTrashed && itemParent === targetParent;
+                if (currentView === 'trash') matchesCondition = item.isTrashed;
+
+                const matchesSearch = searchQuery === "" || item.name.toLowerCase().includes(searchQuery);
+
+                if (matchesCondition && matchesSearch && !seenIds.has(itemId)) {
+                    seenIds.add(itemId);
+                    if (item.type === 'folder' && (currentView === 'cloud' || currentView === 'trash')) {
+                        folderGrid.appendChild(createCardElement(item, itemId, 'folder'));
+                    } else if (item.type === 'file') {
+                        fileContainer.appendChild(createCardElement(item, itemId, 'file'));
+                    }
+                }
+                cursor.continue();
+            } else {
+                refreshIcons();
+            }
+        };
+    }
+
+    function createCardElement(item, id, type) {
+        const el = document.createElement("div");
+        const isVideo = item.mimeType && item.mimeType.startsWith("video/");
+        const isAudio = item.mimeType && item.mimeType.startsWith("audio/");
+        const iconName = type === 'folder' ? 'folder' : (isVideo ? 'video' : (isAudio ? 'music' : 'file-text'));
+
+        if (isListView) {
+            el.className = "list-row";
+            el.onclick = () => type === 'folder' ? navigateTo(id, item.name) : previewFile(item);
+            el.innerHTML = `
+                <div class="list-info"><i data-lucide="${iconName}" size="20" style="color:var(--primary);"></i> ${item.name}</div>
+                <div style="display:flex; gap:15px; align-items:center; color:var(--text-muted); font-size:0.85rem;">
+                    <span>${type === 'folder' ? 'Folder' : Math.round(item.originalSize/1024) + ' KB'}</span>
+                    ${item.isTrashed ? `
+                        <button class="icon-btn restore" title="Restore" onclick="event.stopPropagation(); restoreItem(${id})"><i data-lucide="rotate-ccw" size="14"></i></button>
+                        <button class="icon-btn delete" title="Delete Forever" onclick="event.stopPropagation(); promptDelete(${id})"><i data-lucide="x" size="14"></i></button>
+                    ` : `
+                        ${type === 'file' ? `<button class="icon-btn share" title="Share Link" onclick="event.stopPropagation(); generateShareLink('${item.contentHash}', '${encodeURIComponent(item.name)}', '${encodeURIComponent(item.mimeType)}')"><i data-lucide="share-2" size="14"></i></button>` : ''}
+                        <button class="icon-btn delete" title="Move to Trash" onclick="event.stopPropagation(); moveToTrash(${id})"><i data-lucide="trash-2" size="14"></i></button>
+                    `}
+                </div>
+            `;
+        } else {
+            el.className = "card";
+            el.onclick = () => type === 'folder' ? navigateTo(id, item.name) : previewFile(item);
+            el.innerHTML = `
+                <div class="card-actions">
+                    ${item.isTrashed ? `
+                        <button class="icon-btn restore" title="Restore" onclick="event.stopPropagation(); restoreItem(${id})"><i data-lucide="rotate-ccw" size="14"></i></button>
+                        <button class="icon-btn delete" title="Delete Forever" onclick="event.stopPropagation(); promptDelete(${id})"><i data-lucide="x" size="14"></i></button>
+                    ` : `
+                        ${type === 'file' ? `<button class="icon-btn share" title="Share Link" onclick="event.stopPropagation(); generateShareLink('${item.contentHash}', '${encodeURIComponent(item.name)}', '${encodeURIComponent(item.mimeType)}')"><i data-lucide="share-2" size="14"></i></button>` : ''}
+                        <button class="icon-btn delete" title="Move to Trash" onclick="event.stopPropagation(); moveToTrash(${id})"><i data-lucide="trash-2" size="14"></i></button>
+                    `}
+                </div>
+                <div class="card-icon"><i data-lucide="${iconName}" size="28"></i></div>
+                <div class="card-title">${item.name}</div>
+                <div class="card-meta"><span>${type === 'folder' ? 'Folder' : Math.round(item.originalSize/1024) + ' KB'}</span></div>
+            `;
         }
-      }, intervalTime);
+        return el;
     }
 
-    function triggerTestReset() {
-      localStorage.setItem(migrationKey, 'false');
-      location.reload();
+    function generateShareLink(contentHash, encodedName, encodedMime) {
+        const tx = db.transaction([BLOB_STORE], "readonly");
+        tx.objectStore(BLOB_STORE).get(contentHash).onsuccess = e => {
+            const record = e.target.result;
+            if (!record) { showToast("Error: Record block missing."); return; }
+
+            const keyJson = encodeURIComponent(JSON.stringify(record.key));
+            const ivB64 = btoa(String.fromCharCode(...record.iv));
+            
+            const shareUrl = `${window.location.origin}${window.location.pathname}?shareHash=${contentHash}&shareName=${encodedName}&shareMime=${encodedMime}&shareKey=${keyJson}&shareIv=${encodeURIComponent(ivB64)}`;
+            
+            document.getElementById("shareLinkInput").value = shareUrl;
+            document.getElementById("shareModal").style.display = "flex";
+            refreshIcons();
+        };
     }
-  </script>
+
+    function copyShareLink() {
+        const input = document.getElementById("shareLinkInput");
+        input.select();
+        navigator.clipboard.writeText(input.value);
+        showToast("Secure share link copied to clipboard!");
+        closeModal("shareModal");
+    }
+
+    function moveToTrash(id) {
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.get(id).onsuccess = e => {
+            const item = e.target.result;
+            if (item) { item.isTrashed = true; store.put(item); }
+        };
+        tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Moved to trash bin"); };
+    }
+
+    function restoreItem(id) {
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.get(id).onsuccess = e => {
+            const item = e.target.result;
+            if (item) { item.isTrashed = false; store.put(item); }
+        };
+        tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Item restored successfully!"); };
+    }
+
+    function promptDelete(id) { 
+        pendingDeleteId = id; 
+        document.getElementById("trashModalText").innerText = "This action cannot be undone. The cryptographic file block will be purged.";
+        document.getElementById("trashConfirmBtn").setAttribute("onclick", "confirmPermanentDelete()");
+        document.getElementById("trashModal").style.display = "flex"; 
+    }
+
+    function confirmPermanentDelete() {
+        if (pendingDeleteId === null) return;
+        closeModal('trashModal');
+
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.get(pendingDeleteId).onsuccess = e => { store.delete(pendingDeleteId); };
+
+        tx.oncomplete = () => { 
+            pendingDeleteId = null; 
+            cleanupOrphanedBlobsManual();
+            updateStorageMeter(); 
+            loadView(); 
+            showToast("Permanently destroyed!"); 
+        };
+    }
+
+    function promptEmptyTrash() {
+        document.getElementById("trashModalText").innerText = "Are you sure you want to completely empty the trash bin? All items inside will be purged permanently.";
+        document.getElementById("trashConfirmBtn").setAttribute("onclick", "confirmEmptyTrash()");
+        document.getElementById("trashModal").style.display = "flex";
+    }
+
+    function confirmEmptyTrash() {
+        closeModal('trashModal');
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        
+        store.openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                if (cursor.value.isTrashed) store.delete(cursor.key);
+                cursor.continue();
+            }
+        };
+
+        tx.oncomplete = () => {
+            cleanupOrphanedBlobsManual();
+            updateStorageMeter();
+            loadView();
+            showToast("Trash bin emptied successfully!");
+        };
+    }
+
+    function cleanupOrphanedBlobsManual() {
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
+        const activeHashes = new Set();
+
+        tx.objectStore(STORE_NAME).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                if (cursor.value.contentHash) activeHashes.add(cursor.value.contentHash);
+                cursor.continue();
+            }
+        };
+
+        tx.objectStore(BLOB_STORE).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) {
+                if (!activeHashes.has(cursor.value.hash)) tx.objectStore(BLOB_STORE).delete(cursor.value.hash);
+                cursor.continue();
+            }
+        };
+    }
+
+    async function previewFile(item) {
+        document.getElementById("previewTitle").innerHTML = `<i data-lucide="eye"></i> ${item.name}`;
+        document.getElementById("previewContent").innerText = "Decrypting file block...";
+        document.getElementById("previewModal").style.display = "flex";
+        refreshIcons();
+
+        // Check if shared link parameters exist in URL to pull key/iv dynamically
+        const params = new URLSearchParams(window.location.search);
+        const shareKey = params.get("shareKey");
+        const shareIv = params.get("shareIv");
+
+        const tx = db.transaction([BLOB_STORE], "readonly");
+        const request = tx.objectStore(BLOB_STORE).get(item.contentHash);
+        
+        request.onsuccess = async e => {
+            try {
+                let record = e.target.result;
+                let jwkKey, ivArr;
+
+                if (!record && shareKey && shareIv) {
+                    jwkKey = JSON.parse(decodeURIComponent(shareKey));
+                    ivArr = Uint8Array.from(atob(shareIv), c => c.charCodeAt(0));
+                    // If opening from share link, prompt blob request via IndexedDB fallback if stored block matches hash
+                }
+                
+                if (!record) { 
+                    document.getElementById("previewContent").innerText = "Error: File block payload missing or inaccessible."; 
+                    return; 
+                }
+
+                const keyToUse = record.key;
+                const ivToUse = record.iv;
+
+                const key = await crypto.subtle.importKey("jwk", record.key, { name: "AES-GCM", length: 256 }, true, ["decrypt"]);
+                const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: record.iv }, key, record.ciphertext);
+                const original = await decompressData(decrypted);
+
+                const container = document.getElementById("previewContent");
+                const blob = new Blob([original], { type: item.mimeType || "application/octet-stream" });
+                const url = URL.createObjectURL(blob);
+
+                if (item.mimeType && item.mimeType.startsWith("image/")) {
+                    container.innerHTML = `<img src="${url}" alt="Preview">`;
+                } else if (item.mimeType && (item.mimeType.startsWith("video/") || item.mimeType.startsWith("audio/"))) {
+                    const tag = item.mimeType.startsWith("video/") ? "video" : "audio";
+                    container.innerHTML = `<${tag} controls autoplay src="${url}"></${tag}>`;
+                } else {
+                    const text = new TextDecoder().decode(original);
+                    container.innerText = text;
+                }
+
+                document.getElementById("previewDownloadBtn").onclick = () => downloadDecrypted(item, original);
+            } catch (err) {
+                console.error(err);
+                document.getElementById("previewContent").innerText = "Error: Failed to decrypt or parse file block.";
+            }
+        };
+
+        request.onerror = () => {
+            document.getElementById("previewContent").innerText = "Error reading from database storage.";
+        };
+    }
+
+    function downloadDecrypted(item, buffer) {
+        const blob = new Blob([buffer], { type: item.mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = item.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("File downloaded successfully");
+    }
+
+    async function exportVault() {
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readonly");
+        let items = [], blobs = [];
+        tx.objectStore(STORE_NAME).openCursor().onsuccess = e => { const cursor = e.target.result; if(cursor){ items.push(cursor.value); cursor.continue(); } };
+        tx.objectStore(BLOB_STORE).openCursor().onsuccess = e => { const cursor = e.target.result; if(cursor){ blobs.push(cursor.value); cursor.continue(); } };
+        tx.oncomplete = () => {
+            const backupData = JSON.stringify({ items, blobs });
+            const blob = new Blob([backupData], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = `InfCloud_Vault_${new Date().toISOString().slice(0,10)}.infbackup`;
+            a.click(); showToast("Vault backup generated!");
+        };
+    }
+
+    async function importVault(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
+        data.items.forEach(i => tx.objectStore(STORE_NAME).put(i));
+        data.blobs.forEach(b => tx.objectStore(BLOB_STORE).put(b));
+        tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Vault successfully restored!"); closeModal('storageModal'); };
+    }
+</script>
 </body>
 </html>
