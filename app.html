@@ -143,6 +143,7 @@
         .icon-btn.delete:hover { background: var(--danger); color: white; border-color: var(--danger); }
         .icon-btn.restore:hover { background: var(--success); color: white; border-color: var(--success); }
         .icon-btn.share:hover { background: var(--primary); color: white; border-color: var(--primary); }
+        .icon-btn.rename:hover { background: var(--warning); color: #000; border-color: var(--warning); }
 
         /* List Layout */
         .list-view { display: flex; flex-direction: column; gap: 6px; }
@@ -279,6 +280,17 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="renameModal">
+        <div class="modal">
+            <h4><i data-lucide="edit-3"></i> Rename Item</h4>
+            <input type="text" id="renameInput" placeholder="New name..." onkeydown="if(event.key==='Enter') confirmRenameItem()">
+            <div class="modal-buttons">
+                <button class="secondary-btn" onclick="closeModal('renameModal')">Cancel</button>
+                <button class="primary-btn" onclick="confirmRenameItem()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="shareModal">
         <div class="modal">
             <h4><i data-lucide="share-2"></i> Secure File Share Link</h4>
@@ -396,7 +408,7 @@
     const STORE_NAME = "driveItems";
     const BLOB_STORE = "contentBlobs";
     let db, currentFolderId = null, folderPath = [], currentView = "cloud", searchQuery = "";
-    let isListView = false, pendingDeleteId = null;
+    let isListView = false, pendingDeleteId = null, pendingRenameId = null;
 
     function refreshIcons() { lucide.createIcons(); }
 
@@ -410,7 +422,6 @@
         setTimeout(() => { if (t.parentElement) t.remove(); }, 3000);
     }
 
-    // Check migration completion on load
     if (localStorage.getItem("infcloud_version") === "2.0") {
         document.getElementById("migrationModalOverlay").style.display = "none";
     }
@@ -490,6 +501,36 @@
         document.getElementById("folderNameInput").value = "";
         setTimeout(() => document.getElementById("folderNameInput").focus(), 50);
     }
+
+    function openRenameModal(id, currentName) {
+        pendingRenameId = id;
+        document.getElementById("renameModal").style.display = "flex";
+        const input = document.getElementById("renameInput");
+        input.value = currentName;
+        setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
+
+    function confirmRenameItem() {
+        const newName = document.getElementById("renameInput").value.trim();
+        if (!newName || pendingRenameId === null) return;
+        closeModal('renameModal');
+
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.get(pendingRenameId).onsuccess = e => {
+            const item = e.target.result;
+            if (item) {
+                item.name = newName;
+                store.put(item);
+            }
+        };
+        tx.oncomplete = () => {
+            pendingRenameId = null;
+            loadView();
+            showToast("Item renamed successfully!");
+        };
+    }
+
     function openStorageModal() { document.getElementById("storageModal").style.display = "flex"; updateStorageStatsModal(); }
     
     function closeModal(id) { 
@@ -502,7 +543,6 @@
         }
     }
 
-    // Initialize Database
     const request = indexedDB.open(DB_NAME, 10);
     request.onsuccess = async e => { 
         db = e.target.result; 
@@ -546,29 +586,19 @@
         const shareHash = params.get("shareHash");
         const shareName = params.get("shareName");
         const shareMime = params.get("shareMime");
-        const shareKey = params.get("shareKey");
-        const shareIv = params.get("shareIv");
 
-        if (shareHash && shareKey && shareIv) {
-            try {
-                const tx = db.transaction([BLOB_STORE], "readonly");
-                const req = tx.objectStore(BLOB_STORE).get(shareHash);
-                
-                req.onsuccess = async e => {
-                    const record = e.target.result;
-                    if (record) {
-                        previewFile({ name: decodeURIComponent(shareName || "Shared File"), mimeType: decodeURIComponent(shareMime || "application/octet-stream"), contentHash: shareHash });
-                    } else {
-                        showToast("Shared item block not found in local workspace storage database.");
-                    }
-                };
-            } catch(err) {
-                console.error(err);
-            }
+        if (shareHash) {
+            const tx = db.transaction([BLOB_STORE], "readonly");
+            tx.objectStore(BLOB_STORE).get(shareHash).onsuccess = e => {
+                if (e.target.result) {
+                    previewFile({ name: decodeURIComponent(shareName || "Shared File"), mimeType: decodeURIComponent(shareMime || "application/octet-stream"), contentHash: shareHash });
+                } else {
+                    showToast("Shared item block not found in local workspace storage database.");
+                }
+            };
         }
     }
 
-    // Drag and Drop Upload Handlers
     const dropZone = document.getElementById("mainDropZone");
     dropZone.addEventListener("dragover", e => { e.preventDefault(); document.getElementById("dropOverlay").style.display = "flex"; });
     dropZone.addEventListener("dragleave", e => { e.preventDefault(); document.getElementById("dropOverlay").style.display = "none"; });
@@ -838,25 +868,25 @@
                 
                 let matchesCondition = false;
                 if (currentView === 'cloud') {
-                    // In cloud view, only show items that are not trashed and match current folder level
                     matchesCondition = !item.isTrashed && itemParent === targetParent;
-                }
-                if (currentView === 'trash') {
-                    // In trash view, only show items at the root level of trash (top-level trashed folders or files moved directly to trash)
-                    matchesCondition = item.isTrashed && (itemParent === null || isParentInCloud(itemParent));
+                } else if (currentView === 'trash') {
+                    matchesCondition = item.isTrashed;
                 }
 
                 const matchesSearch = searchQuery === "" || item.name.toLowerCase().includes(searchQuery);
 
                 if (matchesCondition && matchesSearch && !seenIds.has(itemId)) {
                     seenIds.add(itemId);
-                    if (item.type === 'folder' && (currentView === 'cloud' || currentView === 'trash')) {
+                    if (item.type === 'folder' && currentView === 'cloud') {
                         folderGrid.appendChild(createCardElement(item, itemId, 'folder'));
                     } else if (item.type === 'file' && currentView === 'cloud') {
                         fileContainer.appendChild(createCardElement(item, itemId, 'file'));
-                    } else if (item.type === 'file' && currentView === 'trash') {
-                        // For files inside trash, display them in the folderGrid or fileContainer depending on preference. Let's put them in folderGrid or fileContainer:
-                        fileContainer.appendChild(createCardElement(item, itemId, 'file'));
+                    } else if (currentView === 'trash') {
+                        if (item.type === 'folder') {
+                            folderGrid.appendChild(createCardElement(item, itemId, 'folder'));
+                        } else {
+                            fileContainer.appendChild(createCardElement(item, itemId, 'file'));
+                        }
                     }
                 }
                 cursor.continue();
@@ -866,29 +896,18 @@
         };
     }
 
-    // Helper to determine if an item's parent is active (not trashed) so we know if it sits at the root of the trash bin
-    function isParentInCloud(parentId) {
-        // We evaluate this synchronously or use cached lookup if needed; for simplicity let's check via a quick synchronous check pattern or let loadView query items. 
-        // Actually, a simpler rule for Trash Bin root items: items where isTrashed is true, and their immediate parent is either null OR their parent folder is NOT trashed.
-        return false; 
-    }
-
-    // Let's refine trash filtering: an item shows in Trash view if item.isTrashed === true. 
-    // To prevent cluttering, we can show all trashed folders and files directly in the Trash view, or filter by top-level. Showing all `item.isTrashed === true` items in Trash view is often preferred so users can see everything they trashed. Let's make Trash view list all items where `item.isTrashed === true`.
-    
-    // Override loadView condition for trash:
-    // if (currentView === 'trash') matchesCondition = item.isTrashed;
-
     function createCardElement(item, id, type) {
         const el = document.createElement("div");
         const isVideo = item.mimeType && item.mimeType.startsWith("video/");
         const isAudio = item.mimeType && item.mimeType.startsWith("audio/");
         const iconName = type === 'folder' ? 'folder' : (isVideo ? 'video' : (isAudio ? 'music' : 'file-text'));
 
+        const escapedName = item.name.replace(/'/g, "\\'");
+
         if (isListView) {
             el.className = "list-row";
             el.onclick = () => {
-                if (item.isTrashed) return; // Don't navigate inside trashed folders
+                if (item.isTrashed) return;
                 if (type === 'folder') navigateTo(id, item.name);
                 else previewFile(item);
             };
@@ -900,6 +919,7 @@
                         <button class="icon-btn restore" title="Restore" onclick="event.stopPropagation(); restoreItem(${id})"><i data-lucide="rotate-ccw" size="14"></i></button>
                         <button class="icon-btn delete" title="Delete Forever" onclick="event.stopPropagation(); promptDelete(${id})"><i data-lucide="x" size="14"></i></button>
                     ` : `
+                        <button class="icon-btn rename" title="Rename" onclick="event.stopPropagation(); openRenameModal(${id}, '${escapedName}')"><i data-lucide="edit-3" size="14"></i></button>
                         ${type === 'file' ? `<button class="icon-btn share" title="Share Link" onclick="event.stopPropagation(); generateShareLink('${item.contentHash}', '${encodeURIComponent(item.name)}', '${encodeURIComponent(item.mimeType)}')"><i data-lucide="share-2" size="14"></i></button>` : ''}
                         <button class="icon-btn delete" title="Move to Trash" onclick="event.stopPropagation(); moveToTrash(${id})"><i data-lucide="trash-2" size="14"></i></button>
                     `}
@@ -918,6 +938,7 @@
                         <button class="icon-btn restore" title="Restore" onclick="event.stopPropagation(); restoreItem(${id})"><i data-lucide="rotate-ccw" size="14"></i></button>
                         <button class="icon-btn delete" title="Delete Forever" onclick="event.stopPropagation(); promptDelete(${id})"><i data-lucide="x" size="14"></i></button>
                     ` : `
+                        <button class="icon-btn rename" title="Rename" onclick="event.stopPropagation(); openRenameModal(${id}, '${escapedName}')"><i data-lucide="edit-3" size="14"></i></button>
                         ${type === 'file' ? `<button class="icon-btn share" title="Share Link" onclick="event.stopPropagation(); generateShareLink('${item.contentHash}', '${encodeURIComponent(item.name)}', '${encodeURIComponent(item.mimeType)}')"><i data-lucide="share-2" size="14"></i></button>` : ''}
                         <button class="icon-btn delete" title="Move to Trash" onclick="event.stopPropagation(); moveToTrash(${id})"><i data-lucide="trash-2" size="14"></i></button>
                     `}
@@ -936,10 +957,7 @@
             const record = e.target.result;
             if (!record) { showToast("Error: Record block missing."); return; }
 
-            const keyJson = encodeURIComponent(JSON.stringify(record.key));
-            const ivB64 = btoa(String.fromCharCode(...record.iv));
-            
-            const shareUrl = `${window.location.origin}${window.location.pathname}?shareHash=${contentHash}&shareName=${encodedName}&shareMime=${encodedMime}&shareKey=${keyJson}&shareIv=${encodeURIComponent(ivB64)}`;
+            const shareUrl = `${window.location.origin}${window.location.pathname}?shareHash=${contentHash}&shareName=${encodedName}&shareMime=${encodedMime}`;
             
             document.getElementById("shareLinkInput").value = shareUrl;
             document.getElementById("shareModal").style.display = "flex";
@@ -959,7 +977,6 @@
         const tx = db.transaction([STORE_NAME], "readwrite");
         const store = tx.objectStore(STORE_NAME);
         
-        // Recursively trash a folder and all its contents
         store.get(id).onsuccess = e => {
             const item = e.target.result;
             if (item) {
@@ -993,13 +1010,7 @@
     function restoreItem(id) {
         const tx = db.transaction([STORE_NAME], "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        store.get(id).onsuccess = e => {
-            const item = e.target.result;
-            if (item) {
-                item.isTrashed = true; // We will set to false, and handle subitems
-                restoreSubItemsRecursive(id, store);
-            }
-        };
+        restoreSubItemsRecursive(id, store);
         tx.oncomplete = () => { updateStorageMeter(); loadView(); showToast("Item restored successfully!"); };
     }
 
@@ -1010,7 +1021,6 @@
                 item.isTrashed = false;
                 store.put(item);
                 
-                // Find any children and restore them too
                 store.openCursor().onsuccess = ev => {
                     const cursor = ev.target.result;
                     if (cursor) {
@@ -1038,8 +1048,6 @@
 
         const tx = db.transaction([STORE_NAME, BLOB_STORE], "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        
-        // Delete item and any recursive contents if it's a folder
         deleteRecursive(pendingDeleteId, store);
 
         tx.oncomplete = () => { 
@@ -1124,10 +1132,6 @@
         document.getElementById("previewContent").innerText = "Decrypting file block...";
         document.getElementById("previewModal").style.display = "flex";
         refreshIcons();
-
-        const params = new URLSearchParams(window.location.search);
-        const shareKey = params.get("shareKey");
-        const shareIv = params.get("shareIv");
 
         const tx = db.transaction([BLOB_STORE], "readonly");
         const request = tx.objectStore(BLOB_STORE).get(item.contentHash);
