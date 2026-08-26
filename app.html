@@ -74,12 +74,10 @@
         /* Storage Widget Card */
         .storage-widget {
             background: linear-gradient(145deg, #0f172a, #0b0f19); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px;
-            display: flex; flex-direction: column; gap: 8px; cursor: pointer; position: relative; overflow: hidden;
+            display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative; overflow: hidden;
         }
         .storage-widget:hover { border-color: var(--primary); box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2); }
         .storage-title { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: flex; justify-content: space-between; }
-        .progress-bar-bg { width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .storage-details { font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; }
 
         .sidebar-footer { display: flex; flex-direction: column; gap: 8px; }
@@ -173,7 +171,7 @@
         }
         .modal {
             background: linear-gradient(145deg, #0f172a, #0b0f19); border: 1px solid rgba(99, 102, 241, 0.3);
-            padding: 24px; border-radius: 16px; width: 420px; box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 40px rgba(99, 102, 241, 0.15);
+            padding: 24px; border-radius: 16px; width: 440px; box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 40px rgba(99, 102, 241, 0.15);
             display: flex; flex-direction: column; gap: 16px; max-height: 85vh; overflow-y: auto;
             animation: popCard 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -186,8 +184,23 @@
         }
         .modal input:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(99, 102, 241, 0.2); }
         .preview-box { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; max-height: 450px; overflow: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; display: flex; justify-content: center; align-items: center; }
-        .preview-box img, .preview-box video, .preview-box audio { max-width: 100%; max-height: 400px; border-radius: 6px; display: block; outline: none; width: 100%; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+        .preview-box img, .preview-box video { max-width: 100%; max-height: 400px; border-radius: 6px; display: block; outline: none; width: 100%; }
+        
+        /* Custom Audio Player Styling */
+        .custom-audio-player { width: 100%; display: flex; flex-direction: column; gap: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; align-items: center; }
+        .audio-top-row { display: flex; width: 100%; justify-content: space-between; align-items: center; color: var(--text-main); font-weight: 600; font-size: 0.95rem; }
+        .audio-controls-row { display: flex; width: 100%; align-items: center; gap: 14px; }
+        .play-pause-btn { background: linear-gradient(135deg, var(--primary), #4f46e5); color: white; border: none; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); flex-shrink: 0; }
+        .play-pause-btn:hover { transform: scale(1.05); }
+        .audio-timeline-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .audio-seeker { -webkit-appearance: none; width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; outline: none; cursor: pointer; }
+        .audio-seeker::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--primary); cursor: pointer; box-shadow: 0 0 10px rgba(99,102,241,0.5); }
+        .audio-time-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+        .audio-volume-wrap { display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+        .audio-volume { -webkit-appearance: none; width: 70px; height: 5px; background: var(--border-color); border-radius: 3px; outline: none; cursor: pointer; }
+        .audio-volume::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); cursor: pointer; }
+
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
 
         /* Toast Container */
         #toast-container { position: fixed; bottom: 25px; right: 25px; z-index: 1100; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
@@ -240,7 +253,7 @@
 </head>
 <body>
 
-    <!-- 1.5 MINUTE MIGRATION SCREEN (Will display if version is not 2.0) -->
+    <!-- MIGRATION SCREEN -->
     <div id="migrationModalOverlay">
         <div class="migration-box" id="migrationBoxContent">
             <div class="migration-icon"><i data-lucide="sparkles" size="36"></i></div>
@@ -324,7 +337,7 @@
                 <div style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Deduplication Efficiency:</span> <strong id="statRatio" style="color:var(--success)">100%</strong></div>
             </div>
             <div class="modal-buttons" style="margin-top: 15px;">
-                <button class="secondary-btn" onclick="exportVault()"><i data-lucide="download"></i> Backup Vault (.infbackup)</button>
+                <button class="secondary-btn" onclick="exportVault()"><i data-lucide="download"></i> Backup/Prepare for migration (.infbackup)</button>
                 <button class="secondary-btn" onclick="document.getElementById('importInput').click()"><i data-lucide="upload"></i> Restore</button>
                 <input type="file" id="importInput" accept=".infbackup" onchange="importVault(event)">
                 <button class="primary-btn" onclick="closeModal('storageModal')">Close</button>
@@ -360,9 +373,6 @@
                 <div class="storage-title">
                     <span>Storage Engine</span>
                     <span id="storageUsedText">0 KB</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" id="storageBar"></div>
                 </div>
                 <div class="storage-details"><span>Optimized & Secure</span><span id="savingsPctText">100% saved</span></div>
             </div>
@@ -826,7 +836,6 @@
             const savedPct = rawKB > 0 ? Math.max(0, Math.round((1 - (usedKB / rawKB)) * 100)) : 100;
             
             document.getElementById("storageUsedText").innerText = usedKB > 1024 ? `${(usedKB/1024).toFixed(1)} MB` : `${usedKB} KB`;
-            document.getElementById("storageBar").style.width = `${Math.min(100, (usedKB / (50 * 1024)) * 100)}%`;
             document.getElementById("savingsPctText").innerText = `${savedPct}% saved`;
         };
     }
@@ -1127,6 +1136,13 @@
         };
     }
 
+    function formatAudioTime(secs) {
+        if (isNaN(secs)) return "0:00";
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
     async function previewFile(item) {
         document.getElementById("previewTitle").innerHTML = `<i data-lucide="eye"></i> ${item.name}`;
         document.getElementById("previewContent").innerText = "Decrypting file block...";
@@ -1154,9 +1170,75 @@
 
                 if (item.mimeType && item.mimeType.startsWith("image/")) {
                     container.innerHTML = `<img src="${url}" alt="Preview">`;
-                } else if (item.mimeType && (item.mimeType.startsWith("video/") || item.mimeType.startsWith("audio/"))) {
-                    const tag = item.mimeType.startsWith("video/") ? "video" : "audio";
-                    container.innerHTML = `<${tag} controls autoplay src="${url}"></${tag}>`;
+                } else if (item.mimeType && item.mimeType.startsWith("video/")) {
+                    container.innerHTML = `<video controls autoplay src="${url}"></video>`;
+                } else if (item.mimeType && item.mimeType.startsWith("audio/")) {
+                    container.innerHTML = `
+                        <div class="custom-audio-player">
+                            <audio id="modalAudioEl" src="${url}"></audio>
+                            <div class="audio-top-row">
+                                <div style="display:flex; align-items:center; gap:8px;"><i data-lucide="music" size="18" style="color:var(--primary);"></i> <span>${item.name}</span></div>
+                                <div class="audio-volume-wrap">
+                                    <i data-lucide="volume-2" size="16"></i>
+                                    <input type="range" class="audio-volume" id="audioVol" min="0" max="1" step="0.05" value="1">
+                                </div>
+                            </div>
+                            <div class="audio-controls-row">
+                                <button class="play-pause-btn" id="audioPlayPauseBtn"><i data-lucide="play" size="20"></i></button>
+                                <div class="audio-timeline-wrap">
+                                    <input type="range" class="audio-seeker" id="audioSeeker" min="0" max="100" value="0">
+                                    <div class="audio-time-info">
+                                        <span id="audioCurrentTime">0:00</span>
+                                        <span id="audioDuration">0:00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    refreshIcons();
+
+                    const audioEl = document.getElementById("modalAudioEl");
+                    const playBtn = document.getElementById("audioPlayPauseBtn");
+                    const seeker = document.getElementById("audioSeeker");
+                    const currTimeLbl = document.getElementById("audioCurrentTime");
+                    const durLbl = document.getElementById("audioDuration");
+                    const volBar = document.getElementById("audioVol");
+
+                    audioEl.onloadedmetadata = () => {
+                        durLbl.innerText = formatAudioTime(audioEl.duration);
+                    };
+
+                    playBtn.onclick = () => {
+                        if (audioEl.paused) {
+                            audioEl.play();
+                            playBtn.innerHTML = `<i data-lucide="pause" size="20"></i>`;
+                        } else {
+                            audioEl.pause();
+                            playBtn.innerHTML = `<i data-lucide="play" size="20"></i>`;
+                        }
+                        refreshIcons();
+                    };
+
+                    audioEl.ontimeupdate = () => {
+                        if (!audioEl.duration) return;
+                        const pct = (audioEl.currentTime / audioEl.duration) * 100;
+                        seeker.value = pct;
+                        currTimeLbl.innerText = formatAudioTime(audioEl.currentTime);
+                    };
+
+                    seeker.oninput = () => {
+                        if (!audioEl.duration) return;
+                        audioEl.currentTime = (seeker.value / 100) * audioEl.duration;
+                    };
+
+                    volBar.oninput = () => {
+                        audioEl.volume = volBar.value;
+                    };
+
+                    audioEl.onended = () => {
+                        playBtn.innerHTML = `<i data-lucide="play" size="20"></i>`;
+                        refreshIcons();
+                    };
                 } else {
                     const text = new TextDecoder().decode(original);
                     container.innerText = text;
